@@ -164,12 +164,65 @@ def main():
         show_settings()
 
 def show_dashboard():
-                    with st.expander(f"{item.get('title')} - {item.get('time_published')[:8]}"):
-                        st.write(item.get('summary'))
-                        st.caption(f"Source: {item.get('source')} | Sentiment: {item.get('overall_sentiment_score')}")
-                        st.markdown(f"[Read more]({item.get('url')})")
-            else:
-                st.info("No news found or provider doesn't support news.")
+    st.header("Dashboard")
+    
+    # Portfolio Summary
+    st.subheader("Portfolio Summary")
+    try:
+        account = st.session_state.engine.get_account()
+        
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Equity", f"${float(account.equity):,.2f}")
+        c2.metric("Buying Power", f"${float(account.buying_power):,.2f}")
+        
+        # Calculate P&L (Simple approximation if not provided directly)
+        # Alpaca account object usually has 'last_equity'
+        last_equity = float(account.last_equity)
+        equity = float(account.equity)
+        pnl = equity - last_equity
+        pnl_pct = (pnl / last_equity) * 100 if last_equity else 0
+        
+        c3.metric("Today's P&L", f"${pnl:,.2f}", f"{pnl_pct:.2f}%")
+        c4.metric("Status", account.status)
+        
+    except Exception as e:
+        st.error(f"Failed to fetch account info: {e}")
+
+    # Active Positions
+    st.subheader("Active Positions")
+    try:
+        positions = st.session_state.engine.get_positions()
+        if positions:
+            pos_data = []
+            for p in positions:
+                pos_data.append({
+                    "Symbol": p.symbol,
+                    "Qty": p.qty,
+                    "Value": f"${float(p.market_value):,.2f}",
+                    "P&L": f"${float(p.unrealized_pl):,.2f}",
+                    "P&L %": f"{float(p.unrealized_plpc)*100:.2f}%"
+                })
+            st.dataframe(pd.DataFrame(pos_data), use_container_width=True)
+        else:
+            st.info("No active positions.")
+    except Exception as e:
+        st.error(f"Failed to fetch positions: {e}")
+
+    # Market News (Trending)
+    st.subheader("Market News")
+    try:
+        # Use AAPL as a default for news if no specific context
+        news = st.session_state.service.get_market_news("AAPL") 
+        if news:
+            for item in news[:5]:
+                with st.expander(f"{item.get('title')} - {item.get('time_published')[:8]}"):
+                    st.write(item.get('summary'))
+                    st.caption(f"Source: {item.get('source')} | Sentiment: {item.get('overall_sentiment_score')}")
+                    st.markdown(f"[Read more]({item.get('url')})")
+        else:
+            st.info("No news found.")
+    except Exception as e:
+        st.warning(f"Could not fetch news: {e}")
 
 def show_analysis():
     st.header("Market Analysis")
