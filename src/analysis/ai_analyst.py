@@ -109,7 +109,14 @@ class AIAnalyst:
         # 2. Gemini failed and OpenAI not configured
         
         if gemini_error:
-            return f"**AI Analysis Failed**\n\nGemini Error: {gemini_error}\n\n(OpenAI failover not configured)"
+            try:
+                # Debug: List available models to see what is supported
+                available_models = [m.name for m in genai.list_models()]
+                model_list_str = ", ".join(available_models)
+            except Exception as e:
+                model_list_str = f"Could not list models: {e}"
+                
+            return f"**AI Analysis Failed**\n\nGemini Error: {gemini_error}\n\n**Available Models for your Key:**\n{model_list_str}\n\n(OpenAI failover not configured)"
             
         return """**AI Analysis Unavailable**
 
