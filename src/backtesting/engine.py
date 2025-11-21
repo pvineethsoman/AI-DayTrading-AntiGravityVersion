@@ -43,9 +43,10 @@ class Backtester:
             current_price_point = current_slice[-1]
             
             # Create a temporary stock object for analysis
+            # Convert history to dicts to avoid Pydantic class mismatch during reloading
             temp_stock = Stock(
                 symbol=stock_data.symbol,
-                history=current_slice,
+                history=[p.model_dump() for p in current_slice],
                 current_price=current_price_point.close
             )
             
