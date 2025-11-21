@@ -40,7 +40,7 @@ class PortfolioManager:
         if len(self.decisions_log) > 50:
             self.decisions_log.pop()
             
-    def run_cycle(self, persona: str = "General", watchlist: List[str] = None):
+    def run_cycle(self, persona: str = "General", watchlist: List[str] = None, max_stocks: int = 10):
         """Runs a full agent cycle."""
         if not settings.TRADING_ENABLED:
             self.log_decision("SYSTEM", "SKIP", "Trading Disabled (Kill Switch)")
@@ -53,13 +53,13 @@ class PortfolioManager:
             return
 
         try:
-            logger.info(f"Starting Agent Cycle ({persona})")
+            logger.info(f"Starting Agent Cycle ({persona}, max_stocks={max_stocks})")
             
             # 1. Review Holdings (Sell Logic)
             self.review_holdings(persona)
             
             # 2. Find Opportunities (Buy Logic)
-            self.find_opportunities(persona, watchlist)
+            self.find_opportunities(persona, watchlist, max_stocks)
             
         finally:
             self.lock.release()
@@ -106,7 +106,7 @@ class PortfolioManager:
         except Exception as e:
             logger.error(f"Error getting positions: {e}")
 
-    def find_opportunities(self, persona: str, watchlist: List[str] = None):
+    def find_opportunities(self, persona: str, watchlist: List[str] = None, max_stocks: int = 10):
         """Scans market and buys if criteria met."""
         
         # Check Risk Limits (Max Open Positions)
@@ -121,8 +121,8 @@ class PortfolioManager:
         # Get Scan List
         scan_list = self.scanner.get_scan_list(watchlist)
         
-        # Analyze Candidates (Limit to top 5 to save API calls per cycle)
-        for symbol in scan_list[:5]: 
+        # Analyze Candidates (User-configurable limit)
+        for symbol in scan_list[:max_stocks]: 
             try:
                 # Skip if already owned
                 if any(p.symbol == symbol for p in positions):

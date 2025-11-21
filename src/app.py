@@ -352,6 +352,19 @@ def show_analysis():
 def show_agent_dashboard():
     st.header("🤖 Agent Command Center")
     
+    # Help Text
+    with st.expander("ℹ️ What is the Autonomous Agent?"):
+        st.markdown("""
+        The **Autonomous Agent** is an AI-powered trading system that:
+        - **Scans** the market for opportunities (top gainers/losers, your watchlist, major indices)
+        - **Analyzes** stocks using your selected AI persona (Buffett, Lynch, etc.)
+        - **Makes** buy/sell/hold decisions based on technical, fundamental, and sentiment analysis
+        - **Executes** trades automatically (if enabled) or logs recommendations
+        - **Runs** on a schedule (09:25 AM and 02:00 PM) or manually on-demand
+        
+        **Current Strategy**: {st.session_state.ai_persona}
+        """)
+    
     # Safety Check
     if not settings.TRADING_ENABLED:
         st.error("⚠️ TRADING IS DISABLED - Enable trading in Settings to use the Agent")
@@ -366,17 +379,23 @@ def show_agent_dashboard():
     with col2:
         st.metric("Active Persona", st.session_state.ai_persona)
     with col3:
-        if st.button("🚀 Run Agent Cycle Now", type="primary", use_container_width=True):
-            with st.status("Agent Running...", expanded=True) as status:
-                st.write("🔍 Scanning Market & Watchlist...")
-                watchlist_symbols = [item.symbol for item in st.session_state.watchlist]
-                
-                st.session_state.portfolio_manager.run_cycle(
-                    persona=st.session_state.ai_persona,
-                    watchlist=watchlist_symbols
-                )
-                status.update(label="Agent Cycle Complete", state="complete", expanded=False)
-                st.rerun()
+        # Max stocks slider
+        max_stocks = st.slider("Max Stocks to Analyze", min_value=5, max_value=50, value=10, step=5,
+                               help="How many stocks should the agent analyze per run?")
+    
+    # Run Button
+    if st.button("🚀 Run Agent Cycle Now", type="primary", use_container_width=True):
+        with st.status("Agent Running...", expanded=True) as status:
+            st.write("🔍 Scanning Market & Watchlist...")
+            watchlist_symbols = [item.symbol for item in st.session_state.watchlist]
+            
+            st.session_state.portfolio_manager.run_cycle(
+                persona=st.session_state.ai_persona,
+                watchlist=watchlist_symbols,
+                max_stocks=max_stocks
+            )
+            status.update(label="Agent Cycle Complete", state="complete", expanded=False)
+            st.rerun()
 
     # Activity Log
     st.subheader("📜 Agent Activity Log")
@@ -507,7 +526,30 @@ def plot_stock_data(stock: Stock):
     st.plotly_chart(fig, use_container_width=True)
 
 def show_backtesting():
-    st.header("Backtesting")
+    st.header("📊 Backtesting")
+    
+    # Help Text
+    with st.expander("ℹ️ What is Backtesting?"):
+        st.markdown("""
+        **Backtesting** allows you to test trading strategies against historical data to see how they would have performed.
+        
+        **How it works:**
+        1. Select a stock symbol and a trading strategy
+        2. The system fetches historical price data
+        3. The strategy is simulated on past data (as if you traded in the past)
+        4. You see the results: profit/loss, number of trades, win rate, etc.
+        
+        **Available Strategies:**
+        - **SMA Crossover**: Buys when short-term average crosses above long-term, sells when it crosses below
+        - **RSI Mean Reversion**: Buys when RSI is oversold (<30), sells when overbought (>70)
+        
+        **Why backtest?**
+        - Validate strategy performance before risking real money
+        - Understand historical returns and drawdowns
+        - Compare different strategies on the same stock
+        
+        ⚠️ **Important**: Past performance does not guarantee future results!
+        """)
     
     col1, col2 = st.columns(2)
     symbol = col1.text_input("Symbol", "AAPL", key="bt_sym").upper()
