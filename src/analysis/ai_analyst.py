@@ -103,9 +103,16 @@ class AIAnalyst:
                 logger.error(f"OpenAI analysis failed: {e}")
                 return f"Error: Both AI models failed.\n\nGemini Error: {gemini_error}\nOpenAI Error: {e}"
                 
+        # If we get here, it means:
+        # 1. No models configured OR
+        # 2. Gemini failed and OpenAI not configured
+        
+        if gemini_error:
+            return f"**AI Analysis Failed**\n\nGemini Error: {gemini_error}\n\n(OpenAI failover not configured)"
+            
         return """**AI Analysis Unavailable**
 
-No AI models are configured. To enable AI analysis, add at least one API key to your `.env` file:
+No AI models are configured. To enable AI analysis, add at least one API key to your `.env` file or Streamlit Secrets:
 
 - `GEMINI_API_KEY` - Get from https://makersuite.google.com/app/apikey
 - `OPENAI_API_KEY` - Get from https://platform.openai.com/api-keys
