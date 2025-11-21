@@ -1,11 +1,18 @@
 import os
 from typing import Optional
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 
 from src.models.risk import RiskSettings
 
 class Settings(BaseSettings):
     """Application settings."""
+    
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra='ignore'
+    )
     
     # App
     APP_NAME: str = "AI Day Trading Bot"
@@ -26,9 +33,5 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
 settings = Settings()
