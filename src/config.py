@@ -2,14 +2,24 @@ import os
 from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
+from pathlib import Path
 
 from src.models.risk import RiskSettings
+
+# Get project root directory
+PROJECT_ROOT = Path(__file__).parent.parent
+ENV_FILE = PROJECT_ROOT / ".env"
+
+# Explicitly load dotenv to ensure keys are set
+from dotenv import load_dotenv
+print(f"Loading .env from: {ENV_FILE}")
+load_dotenv(ENV_FILE)
 
 class Settings(BaseSettings):
     """Application settings."""
     
     model_config = ConfigDict(
-        env_file=".env",
+        env_file=str(ENV_FILE),
         case_sensitive=True,
         extra='ignore'
     )
@@ -36,3 +46,10 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
 
 settings = Settings()
+
+# Debug: Print loaded keys (masked)
+print("--- CONFIG DEBUG ---")
+print(f"GEMINI_KEY: {'*' * 5 if settings.GEMINI_API_KEY else 'MISSING'}")
+print(f"OPENAI_KEY: {'*' * 5 if settings.OPENAI_API_KEY else 'MISSING'}")
+print(f"ALPACA_KEY: {'*' * 5 if settings.ALPACA_API_KEY else 'MISSING'}")
+print("--------------------")
