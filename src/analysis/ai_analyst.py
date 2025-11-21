@@ -36,8 +36,8 @@ class AIAnalyst:
         # Gemini Setup
         if gemini_key:
             genai.configure(api_key=gemini_key)
-            # Use gemini-1.5-flash as it is the current stable and fast model
-            self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+            # Use gemini-2.0-flash (Standard for late 2025)
+            self.gemini_model = genai.GenerativeModel('gemini-2.0-flash')
         else:
             logger.warning("Gemini API key not configured.")
             self.gemini_model = None
@@ -109,14 +109,7 @@ class AIAnalyst:
         # 2. Gemini failed and OpenAI not configured
         
         if gemini_error:
-            try:
-                # Debug: List available models to see what is supported
-                available_models = [m.name for m in genai.list_models()]
-                model_list_str = ", ".join(available_models)
-            except Exception as e:
-                model_list_str = f"Could not list models: {e}"
-                
-            return f"**AI Analysis Failed**\n\nGemini Error: {gemini_error}\n\n**Available Models for your Key:**\n{model_list_str}\n\n(OpenAI failover not configured)"
+            return f"**AI Analysis Failed**\n\nGemini Error: {gemini_error}\n\n(OpenAI failover not configured)"
             
         return """**AI Analysis Unavailable**
 
@@ -126,4 +119,3 @@ No AI models are configured. To enable AI analysis, add at least one API key to 
 - `OPENAI_API_KEY` - Get from https://platform.openai.com/api-keys
 
 Then restart the application."""
-
