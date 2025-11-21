@@ -51,13 +51,6 @@ class AlphaVantageProvider(StockDataProvider):
     @RateLimiter(max_calls=5, period=60)
     def get_news_sentiment(self, symbol: Optional[str] = None, limit: int = 5) -> list:
         """Fetches news sentiment data."""
-        # Note: This endpoint might require a premium key for some features, but basic usage is often free
-        # We construct the URL manually or use the library if supported. 
-        # The alpha_vantage library's TimeSeries doesn't have news. We need a separate request or class.
-        # For simplicity, we'll use requests here if the lib doesn't support it, 
-        # but let's check if we can use the FundamentalData class or similar from the lib.
-        # Actually, let's just use requests to be sure.
-        
         import requests
         url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&apikey={self.api_key}&limit={limit}"
         if symbol:
@@ -66,10 +59,43 @@ class AlphaVantageProvider(StockDataProvider):
         try:
             response = requests.get(url)
             data = response.json()
+            if "feed" not in data:
+                # Log error or rate limit message
+                if "Note" in data:
+                    print(f"Alpha Vantage Limit: {data['Note']}")
+                return []
             return data.get('feed', [])
         except Exception as e:
             print(f"Error fetching news: {e}")
             return []
+
+    @RateLimiter(max_calls=5, period=60)
+    def get_fundamentals(self, symbol: str) -> dict:
+        """Fetches fundamental data (Overview)."""
+        import requests
+        url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={symbol}&apikey={self.api_key}"
+        
+        try:
+            response = requests.get(url)
+            data = response.json()
+            
+            if not data or "Symbol" not in data:
+                return {}
+                
+            # Extract key metrics
+            return {
+                "PE_Ratio": float(data.get("PERatio", 0) or 0),
+                "EPS": float(data.get("EPS", 0) or 0),
+                "Market_Cap": float(data.get("MarketCapitalization", 0) or 0),
+                "Book_Value": float(data.get("BookValue", 0) or 0),
+                "Dividend_Yield": float(data.get("DividendYield", 0) or 0),
+                "Profit_Margin": float(data.get("ProfitMargin", 0) or 0),
+                "Sector": data.get("Sector", "Unknown"),
+                "Industry": data.get("Industry", "Unknown")
+            }
+        except Exception as e:
+            print(f"Error fetching fundamentals: {e}")
+            return {}
 
     def get_current_price(self, symbol: str) -> float:
         # Global Quote endpoint for current price

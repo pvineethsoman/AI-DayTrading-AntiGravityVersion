@@ -16,20 +16,25 @@ class MarketDataService:
     """Service to fetch market data with caching and analysis."""
     
     def __init__(self, provider: StockDataProvider = None, cache: RedisCache = None):
+        self.yahoo_provider = YahooFinanceProvider()
+        self.av_provider = None
+        
         if provider:
-            self.provider = provider
+            self.primary_provider = provider
         elif settings.ALPHA_VANTAGE_API_KEY:
-            logger.info("Using Alpha Vantage Provider")
-            self.provider = AlphaVantageProvider(api_key=settings.ALPHA_VANTAGE_API_KEY)
+            logger.info("Using Alpha Vantage Provider as Primary")
+            self.av_provider = AlphaVantageProvider(api_key=settings.ALPHA_VANTAGE_API_KEY)
+            self.primary_provider = self.av_provider
         else:
-            logger.info("Using Yahoo Finance Provider (Fallback)")
-            self.provider = YahooFinanceProvider()
+            logger.info("Using Yahoo Finance Provider as Primary")
+            self.primary_provider = self.yahoo_provider
             
         self.cache = cache or RedisCache(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
         
     def get_stock_analysis(self, symbol: str, force_refresh: bool = False) -> Stock:
         """
         Get stock data with full analysis. Tries cache first.
+        Implements failover: Alpha Vantage -> Yahoo Finance.
         """
         cache_key = f"stock_analysis:{symbol}"
         
@@ -44,10 +49,47 @@ class MarketDataService:
                 
         logger.info(f"Fetching fresh data for {symbol}")
         
+        stock = None
         try:
-            # Fetch fresh data
-            stock = self.provider.get_stock_data(symbol)
+            # Try Primary Provider
+            stock = self.primary_provider.get_stock_data(symbol)
             
+            # If Primary is Alpha Vantage, try to fetch rich data (Fundamentals & Sentiment)
+            if self.primary_provider == self.av_provider:
+                try:
+                    # Fundamentals
+                    stock.fundamentals = self.av_provider.get_fundamentals(symbol)
+                    
+                    # Sentiment
+                    sentiment_data = self.av_provider.get_news_sentiment(symbol)
+                    if sentiment_data:
+                        # Calculate average sentiment score
+                        scores = [float(item.get('overall_sentiment_score', 0)) for item in sentiment_data]
+                        stock.sentiment_score = sum(scores) / len(scores) if scores else 0
+                        # Use the summary of the most relevant/recent news
+                        stock.sentiment_summary = sentiment_data[0].get('summary', '') if sentiment_data else None
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to fetch rich data from Alpha Vantage: {e}")
+                    
+        except Exception as e:
+            logger.warning(f"Primary provider failed for {symbol}: {e}")
+            
+            # Failover to Yahoo if primary was not Yahoo
+            if self.primary_provider != self.yahoo_provider:
+                logger.info(f"Failing over to Yahoo Finance for {symbol}")
+                try:
+                    stock = self.yahoo_provider.get_stock_data(symbol)
+                except Exception as ye:
+                    logger.error(f"Fallback provider also failed: {ye}")
+                    raise ye
+            else:
+                raise e
+        
+        if not stock:
+            raise Exception(f"Failed to fetch data for {symbol}")
+
+        try:
             # Run analysis
             stock.indicators = TechnicalAnalyzer.calculate_indicators(stock)
             
@@ -60,5 +102,5 @@ class MarketDataService:
             return stock
             
         except Exception as e:
-            logger.error(f"Failed to fetch/analyze stock {symbol}: {e}")
+            logger.error(f"Analysis failed for {symbol}: {e}")
             raise e

@@ -37,7 +37,17 @@ class AIAnalyst:
         - SMA 50: {stock.indicators.sma_50:.2f}
         - SMA 200: {stock.indicators.sma_200:.2f}
         
-        Provide a concise trading insight (Bullish/Bearish/Neutral) and a brief reasoning based on these indicators.
+        Fundamental Data:
+        - P/E Ratio: {stock.fundamentals.get('PE_Ratio', 'N/A')}
+        - EPS: {stock.fundamentals.get('EPS', 'N/A')}
+        - Market Cap: {stock.fundamentals.get('Market_Cap', 'N/A')}
+        - Sector: {stock.fundamentals.get('Sector', 'N/A')}
+        
+        News Sentiment:
+        - Score: {stock.sentiment_score if stock.sentiment_score is not None else 'N/A'} (-1 to 1)
+        - Summary: {stock.sentiment_summary or 'N/A'}
+        
+        Provide a concise trading insight (Bullish/Bearish/Neutral) and a brief reasoning based on Technicals, Fundamentals, and Sentiment.
         Keep it under 3 sentences.
         """
         

@@ -33,6 +33,9 @@ class Stock(BaseModel):
     history: List[Price] = []
     indicators: Optional[TechnicalIndicators] = None
     valuation_metrics: Dict[str, float] = {}
+    fundamentals: Dict[str, float] = Field(default_factory=dict, description="Key fundamental metrics like PE, EPS")
+    sentiment_score: Optional[float] = Field(None, description="News sentiment score (-1 to 1)")
+    sentiment_summary: Optional[str] = Field(None, description="Summary of news sentiment")
     last_updated: datetime = Field(default_factory=datetime.now)
 
     class Config:
