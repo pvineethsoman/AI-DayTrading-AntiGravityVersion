@@ -203,6 +203,20 @@ def apply_custom_css():
 
 def main():
     apply_custom_css()
+    
+    # DEBUG: Show available secrets (Keys only, for security)
+    if hasattr(st, "secrets"):
+        try:
+            # Convert to list to avoid showing actual values
+            secret_keys = list(st.secrets.keys())
+            st.sidebar.warning(f"DEBUG: Secrets Found: {secret_keys}")
+            if not secret_keys:
+                 st.sidebar.error("DEBUG: st.secrets is EMPTY!")
+        except Exception as e:
+            st.sidebar.error(f"DEBUG: Error reading secrets: {e}")
+    else:
+        st.sidebar.error("DEBUG: st.secrets attribute MISSING")
+
     st.title("📈 AI Institutional Trader")
     
     # Sidebar Layout
