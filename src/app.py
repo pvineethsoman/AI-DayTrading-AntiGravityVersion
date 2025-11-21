@@ -559,13 +559,17 @@ def show_backtesting():
         
         **How it works:**
         1. Select a stock symbol and a trading strategy
-        2. The system fetches historical price data
+        2. The system fetches historical price data (typically last 100-200 days)
         3. The strategy is simulated on past data (as if you traded in the past)
         4. You see the results: profit/loss, number of trades, win rate, etc.
         
-        **Available Strategies:**
+        **Available Strategies (Technical/Rule-Based):**
         - **SMA Crossover**: Buys when short-term average crosses above long-term, sells when it crosses below
         - **RSI Mean Reversion**: Buys when RSI is oversold (<30), sells when overbought (>70)
+        
+        **Why only technical strategies?**
+        AI personas (Buffett, Lynch, etc.) require real-time LLM API calls and can't be easily backtested on historical data. 
+        Technical strategies are rule-based and deterministic, making them perfect for backtesting.
         
         **Why backtest?**
         - Validate strategy performance before risking real money
@@ -585,6 +589,12 @@ def show_backtesting():
                 # Fetch Data
                 stock = st.session_state.service.get_stock_analysis(symbol)
                 
+                # Display date range
+                if stock.history and len(stock.history) > 0:
+                    start_date = stock.history[0].timestamp
+                    end_date = stock.history[-1].timestamp
+                    st.info(f"📅 Testing period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} ({len(stock.history)} days)")
+                
                 # Select Strategy
                 if strategy_name == "SMA Crossover":
                     strategy = SMACrossoverStrategy()
@@ -592,17 +602,9 @@ def show_backtesting():
                     strategy = RSIMeanReversionStrategy()
                 
                 # Run Backtest
-                # We need to capture the engine state from backtester
-                # Our current Backtester creates a NEW engine internally.
-                # For visualization, we might want to modify Backtester to accept an engine or return trades.
-                # For now, we'll just use the standard one and show results textually/chart.
-                
                 backtester = Backtester(strategy)
-                # Capture stdout to show logs? Or just modify backtester to return stats.
-                # Let's just run it and show final portfolio value for now.
-                # Ideally refactor Backtester to return a Result object.
                 
-                # Hack: Redirect stdout to capture print statements for now
+                # Capture stdout to show logs
                 import io
                 from contextlib import redirect_stdout
                 
@@ -615,7 +617,14 @@ def show_backtesting():
                 
                 # Show final stats
                 final_val = backtester.engine.portfolio.total_value
-                st.success(f"Backtest Complete. Final Value: ${final_val:,.2f}")
+                initial_val = 10000  # Default starting capital
+                pnl = final_val - initial_val
+                pnl_pct = (pnl / initial_val) * 100
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Final Value", f"${final_val:,.2f}")
+                col2.metric("P&L", f"${pnl:,.2f}", f"{pnl_pct:+.2f}%")
+                col3.metric("Strategy", strategy_name)
                 
             except Exception as e:
                 st.error(f"Backtest failed: {e}")
