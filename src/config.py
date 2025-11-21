@@ -66,9 +66,24 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# AGGRESSIVE FALLBACK: Manually update settings from os.environ if missing
+# This ensures that if Pydantic missed the env vars for some reason, we force them in.
+if not settings.GEMINI_API_KEY and "GEMINI_API_KEY" in os.environ:
+    print("Forcing GEMINI_API_KEY from environment")
+    settings.GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+
+if not settings.OPENAI_API_KEY and "OPENAI_API_KEY" in os.environ:
+    print("Forcing OPENAI_API_KEY from environment")
+    settings.OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+
+if not settings.ALPACA_API_KEY and "ALPACA_API_KEY" in os.environ:
+    print("Forcing ALPACA_API_KEY from environment")
+    settings.ALPACA_API_KEY = os.environ["ALPACA_API_KEY"]
+
 # Debug: Print loaded keys (masked)
 print("--- CONFIG DEBUG ---")
-print(f"GEMINI_KEY: {'*' * 5 if settings.GEMINI_API_KEY else 'MISSING'}")
-print(f"OPENAI_KEY: {'*' * 5 if settings.OPENAI_API_KEY else 'MISSING'}")
-print(f"ALPACA_KEY: {'*' * 5 if settings.ALPACA_API_KEY else 'MISSING'}")
+print(f"Secrets Available: {bool(os.environ.get('GEMINI_API_KEY'))}")
+print(f"GEMINI_KEY (Settings): {'*' * 5 if settings.GEMINI_API_KEY else 'MISSING'}")
+print(f"OPENAI_KEY (Settings): {'*' * 5 if settings.OPENAI_API_KEY else 'MISSING'}")
+print(f"ALPACA_KEY (Settings): {'*' * 5 if settings.ALPACA_API_KEY else 'MISSING'}")
 print("--------------------")
