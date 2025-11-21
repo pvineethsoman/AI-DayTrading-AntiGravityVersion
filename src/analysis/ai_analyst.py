@@ -80,4 +80,12 @@ class AIAnalyst:
                 logger.error(f"OpenAI analysis failed: {e}")
                 return f"Error: Both AI models failed. ({e})"
                 
-        return "AI Analysis Unavailable (No working models configured)"
+        return """**AI Analysis Unavailable**
+
+No AI models are configured. To enable AI analysis, add at least one API key to your `.env` file:
+
+- `GEMINI_API_KEY` - Get from https://makersuite.google.com/app/apikey
+- `OPENAI_API_KEY` - Get from https://platform.openai.com/api-keys
+
+Then restart the application."""
+

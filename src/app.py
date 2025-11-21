@@ -60,6 +60,11 @@ if 'scheduler' not in st.session_state:
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 
+# AI Persona
+if 'ai_persona' not in st.session_state:
+    st.session_state.ai_persona = "General"
+
+
 def apply_custom_css():
     st.markdown("""
         <style>
@@ -144,15 +149,19 @@ def apply_custom_css():
         }
         
         /* Buttons - Ensure High Contrast */
-        .stButton button {
+        .stButton > button,
+        button[kind="primary"],
+        button[kind="secondary"] {
             background-color: #004687 !important;
             color: white !important;
-            border-radius: 4px;
-            border: none;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
+            border-radius: 4px !important;
+            border: none !important;
+            padding: 0.5rem 1rem !important;
+            font-weight: 500 !important;
         }
-        .stButton button:hover {
+        .stButton > button:hover,
+        button[kind="primary"]:hover,
+        button[kind="secondary"]:hover {
             background-color: #003366 !important;
             color: white !important;
         }
@@ -179,35 +188,27 @@ def main():
     page = st.sidebar.radio("Navigation", ["Dashboard", "Market Analysis", "Agent Command Center", "Backtesting", "Settings"])
     
     st.sidebar.markdown("---")
-    
-    # AI Strategy
-    st.sidebar.subheader("🧠 AI Strategy")
-    ai_persona = st.sidebar.selectbox(
-        "Persona",
-        ["General", "Warren Buffett", "Peter Lynch", "Benjamin Graham", "Joel Greenblatt", "Philip Fisher", "John Templeton"],
-        index=0
-    )
-    st.session_state.ai_persona = ai_persona
-    
-    st.sidebar.markdown("---")
 
-    # Execution Config
+    # Execution Config - Alpaca Only
     st.sidebar.caption("Execution Mode")
-    engine_type = st.sidebar.radio("Engine", ["Paper Trading", "Alpaca (Live/Paper)"], label_visibility="collapsed")
+    st.sidebar.write("**Alpaca Trading**")
     
-    if engine_type == "Alpaca (Live/Paper)":
-        if settings.ALPACA_API_KEY:
-            if not isinstance(st.session_state.engine, AlpacaExecutionEngine):
-                try:
-                    st.session_state.engine = AlpacaExecutionEngine()
-                    st.sidebar.success("Connected: Alpaca")
-                except Exception as e:
-                    st.sidebar.error(f"Alpaca Error: {e}")
+    if settings.ALPACA_API_KEY:
+        if not isinstance(st.session_state.engine, AlpacaExecutionEngine):
+            try:
+                st.session_state.engine = AlpacaExecutionEngine()
+                mode = "Paper" if settings.ALPACA_PAPER else "Live"
+                st.sidebar.success(f"✅ Connected: Alpaca ({mode})")
+            except Exception as e:
+                st.sidebar.error(f"❌ Alpaca Error: {e}")
         else:
-            st.sidebar.warning("Alpaca Keys Missing")
+            mode = "Paper" if settings.ALPACA_PAPER else "Live"
+            st.sidebar.info(f"📊 Mode: {mode}")
+            st.sidebar.caption("Change mode in Settings")
     else:
-        if not isinstance(st.session_state.engine, PaperTradingEngine):
-            st.session_state.engine = PaperTradingEngine()
+        st.sidebar.error("❌ Alpaca API keys not configured")
+        st.sidebar.caption("Add keys in Settings to enable trading")
+
     
     if page == "Dashboard":
         show_dashboard()
@@ -352,18 +353,17 @@ def show_analysis():
 def show_agent_dashboard():
     st.header("🤖 Agent Command Center")
     
-    # Help Text
-    with st.expander("ℹ️ What is the Autonomous Agent?"):
-        st.markdown("""
-        The **Autonomous Agent** is an AI-powered trading system that:
-        - **Scans** the market for opportunities (top gainers/losers, your watchlist, major indices)
-        - **Analyzes** stocks using your selected AI persona (Buffett, Lynch, etc.)
-        - **Makes** buy/sell/hold decisions based on technical, fundamental, and sentiment analysis
-        - **Executes** trades automatically (if enabled) or logs recommendations
-        - **Runs** on a schedule (09:25 AM and 02:00 PM) or manually on-demand
-        
-        **Current Strategy**: {st.session_state.ai_persona}
-        """)
+    # AI Strategy Selection
+    st.subheader("🧠 AI Investment Strategy")
+    ai_persona = st.selectbox(
+        "Select Investment Persona",
+        ["General", "Warren Buffett", "Peter Lynch", "Benjamin Graham", "Joel Greenblatt", "Philip Fisher", "John Templeton"],
+        index=0,
+        help="Choose the AI investment strategy for the autonomous agent"
+    )
+    st.session_state.ai_persona = ai_persona
+    
+    st.markdown("---")
     
     # Safety Check
     if not settings.TRADING_ENABLED:
@@ -450,6 +450,30 @@ def show_settings():
             st.error("TRADING DISABLED - KILL SWITCH ACTIVATED")
         else:
             st.success("Trading Enabled")
+    
+    # Alpaca Mode Toggle
+    st.subheader("📊 Alpaca Trading Mode")
+    st.info("**Paper Mode**: Trade with simulated money on Alpaca's paper trading environment\n\n**Live Mode**: Trade with real money (requires funded Alpaca account)")
+    
+    alpaca_mode = st.radio(
+        "Select Mode",
+        ["Paper Trading", "Live Trading"],
+        index=0 if settings.ALPACA_PAPER else 1,
+        help="Paper mode uses paper-api.alpaca.markets, Live mode uses api.alpaca.markets"
+    )
+    
+    new_paper_mode = (alpaca_mode == "Paper Trading")
+    if new_paper_mode != settings.ALPACA_PAPER:
+        settings.ALPACA_PAPER = new_paper_mode
+        # Reinitialize engine with new mode
+        if settings.ALPACA_API_KEY:
+            try:
+                st.session_state.engine = AlpacaExecutionEngine()
+                st.success(f"✅ Switched to {alpaca_mode}")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error switching mode: {e}")
+
             
     # Risk Management
     st.subheader("Risk Management")
