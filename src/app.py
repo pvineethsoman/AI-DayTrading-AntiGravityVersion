@@ -107,7 +107,17 @@ def main():
     
     # Sidebar Config
     st.sidebar.header("Configuration")
+    st.sidebar.header("Configuration")
     engine_type = st.sidebar.radio("Execution Engine", ["Paper Trading", "Alpaca (Live/Paper)"])
+    
+    # AI Strategy Persona
+    st.sidebar.header("AI Strategy")
+    ai_persona = st.sidebar.selectbox(
+        "Investment Persona",
+        ["General", "Warren Buffett", "Peter Lynch", "Benjamin Graham"],
+        index=0
+    )
+    st.session_state.ai_persona = ai_persona
     
     if engine_type == "Alpaca (Live/Paper)":
         if settings.ALPACA_API_KEY:
@@ -169,8 +179,8 @@ def show_analysis():
                     # AI Insight
                     st.subheader("🤖 AI Analyst Insight")
                     if st.button("Generate Insight", key=f"insight_{symbol}"):
-                        with st.spinner("Consulting Gemini..."):
-                            insight = st.session_state.ai_analyst.analyze_stock(stock)
+                        with st.spinner(f"Consulting {st.session_state.ai_persona}..."):
+                            insight = st.session_state.ai_analyst.analyze_stock(stock, persona=st.session_state.ai_persona)
                             st.info(insight)
                     
                 except Exception as e:
@@ -281,7 +291,8 @@ def analyze_and_trade_watchlist():
                 
                 # Get AI confirmation
                 try:
-                    ai_insight = st.session_state.ai_analyst.analyze_stock(stock)
+                    # Use selected persona for auto-trading analysis too
+                    ai_insight = st.session_state.ai_analyst.analyze_stock(stock, persona=st.session_state.get('ai_persona', 'General'))
                     if "bullish" in ai_insight.lower() and signal != "SELL":
                         signal = "BUY"
                         reason += " + AI Bullish"
@@ -379,12 +390,14 @@ def show_settings():
     with st.form("api_keys"):
         av_key = st.text_input("Alpha Vantage Key", value=settings.ALPHA_VANTAGE_API_KEY or "", type="password")
         gemini_key = st.text_input("Gemini Key", value=settings.GEMINI_API_KEY or "", type="password")
+        openai_key = st.text_input("OpenAI Key", value=settings.OPENAI_API_KEY or "", type="password")
         alpaca_key = st.text_input("Alpaca Key", value=settings.ALPACA_API_KEY or "", type="password")
         alpaca_secret = st.text_input("Alpaca Secret", value=settings.ALPACA_SECRET_KEY or "", type="password")
         
         if st.form_submit_button("Update Keys"):
             settings.ALPHA_VANTAGE_API_KEY = av_key
             settings.GEMINI_API_KEY = gemini_key
+            settings.OPENAI_API_KEY = openai_key
             settings.ALPACA_API_KEY = alpaca_key
             settings.ALPACA_SECRET_KEY = alpaca_secret
             st.success("API Keys updated for this session!")

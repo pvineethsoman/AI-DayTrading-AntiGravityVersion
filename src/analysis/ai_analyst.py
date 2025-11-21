@@ -1,66 +1,83 @@
 import google.generativeai as genai
+from openai import OpenAI
 from src.models.domain import Stock
 from src.config import settings
 from src.infrastructure.throttling import RateLimiter
+from src.analysis.prompts import PERSONA_PROMPTS
 import logging
 
 logger = logging.getLogger(__name__)
 
 class AIAnalyst:
-    """Uses Google Gemini to analyze stock data."""
+    """Uses Google Gemini (Primary) and OpenAI (Failover) to analyze stock data."""
     
     def __init__(self):
-        if not settings.GEMINI_API_KEY:
-            logger.warning("Gemini API key not configured. AI features disabled.")
-            self.model = None
-            return
+        # Gemini Setup
+        if settings.GEMINI_API_KEY:
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            self.gemini_model = genai.GenerativeModel('gemini-pro')
+        else:
+            logger.warning("Gemini API key not configured.")
+            self.gemini_model = None
             
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-pro')
+        # OpenAI Setup
+        if settings.OPENAI_API_KEY:
+            self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        else:
+            logger.warning("OpenAI API key not configured.")
+            self.openai_client = None
 
     @RateLimiter(max_calls=60, period=60)
-    def analyze_stock(self, stock: Stock) -> str:
-        """Generates a text analysis of the stock."""
-        if not self.model:
-            return "AI Analysis Unavailable (Missing Key)"
-            
+    def analyze_stock(self, stock: Stock, persona: str = "General") -> str:
+        """Generates a text analysis of the stock using the selected persona."""
+        
         if not stock.indicators:
             return "Insufficient data for AI analysis."
             
-        prompt = f"""
-        Analyze the following stock data for {stock.symbol} ({stock.company_name}):
-        Current Price: ${stock.current_price}
+        # Prepare Prompt
+        prompt_template = PERSONA_PROMPTS.get(persona, PERSONA_PROMPTS["General"])
         
-        Technical Indicators:
-        - RSI: {stock.indicators.rsi:.2f}
-        - MACD: {stock.indicators.macd:.2f}
-        - SMA 50: {stock.indicators.sma_50:.2f}
-        - SMA 200: {stock.indicators.sma_200:.2f}
-        
-        Fundamental Data:
-        - P/E Ratio: {stock.fundamentals.get('PE_Ratio', 'N/A')}
-        - EPS: {stock.fundamentals.get('EPS', 'N/A')}
-        - Market Cap: {stock.fundamentals.get('Market_Cap', 'N/A')}
-        - Sector: {stock.fundamentals.get('Sector', 'N/A')}
-        
-        News Sentiment:
-        - Score: {stock.sentiment_score if stock.sentiment_score is not None else 'N/A'} (-1 to 1)
-        - Summary: {stock.sentiment_summary or 'N/A'}
-        
-        Provide a concise trading insight (Bullish/Bearish/Neutral) and a brief reasoning based on Technicals, Fundamentals, and Sentiment.
-        Keep it under 3 sentences.
-        """
-        
+        # Safe formatting
         try:
-            # Check if we have a recent cached response (simulated for now, or use streamlit cache if we move this to a function)
-            # For now, we'll rely on the app-level caching or just handle errors gracefully
-            response = self.model.generate_content(prompt)
-            if response.text:
-                return response.text
-            else:
-                return "AI returned empty response."
+            prompt = prompt_template.format(
+                symbol=stock.symbol,
+                company_name=stock.company_name or "Unknown",
+                current_price=f"{stock.current_price:.2f}" if stock.current_price else "N/A",
+                rsi=f"{stock.indicators.rsi:.2f}" if stock.indicators.rsi else "N/A",
+                macd=f"{stock.indicators.macd:.2f}" if stock.indicators.macd else "N/A",
+                sma_50=f"{stock.indicators.sma_50:.2f}" if stock.indicators.sma_50 else "N/A",
+                sma_200=f"{stock.indicators.sma_200:.2f}" if stock.indicators.sma_200 else "N/A",
+                pe_ratio=stock.fundamentals.get('PE_Ratio', 'N/A'),
+                eps=stock.fundamentals.get('EPS', 'N/A'),
+                market_cap=stock.fundamentals.get('Market_Cap', 'N/A'),
+                sector=stock.fundamentals.get('Sector', 'N/A'),
+                sentiment_score=f"{stock.sentiment_score:.2f}" if stock.sentiment_score is not None else "N/A",
+                sentiment_summary=stock.sentiment_summary or "No significant news."
+            )
         except Exception as e:
-            logger.error(f"Gemini analysis failed: {e}")
-            if "429" in str(e):
-                return "AI Rate Limit Exceeded. Try again later."
-            return f"Error generating analysis: {str(e)[:100]}..."
+            logger.error(f"Error formatting prompt: {e}")
+            return "Error preparing analysis data."
+        
+        # 1. Try Gemini (Primary)
+        if self.gemini_model:
+            try:
+                response = self.gemini_model.generate_content(prompt)
+                if response.text:
+                    return f"**[Gemini - {persona}]**: {response.text}"
+            except Exception as e:
+                logger.warning(f"Gemini analysis failed: {e}. Failing over to OpenAI...")
+        
+        # 2. Try OpenAI (Failover)
+        if self.openai_client:
+            try:
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-4o", # Using GPT-4o for best results
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=150
+                )
+                return f"**[OpenAI - {persona}]**: {response.choices[0].message.content}"
+            except Exception as e:
+                logger.error(f"OpenAI analysis failed: {e}")
+                return f"Error: Both AI models failed. ({e})"
+                
+        return "AI Analysis Unavailable (No working models configured)"

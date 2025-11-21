@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     ALPACA_API_KEY: Optional[str] = None
     ALPACA_SECRET_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
     ALPACA_PAPER: bool = True
     
     # Redis
