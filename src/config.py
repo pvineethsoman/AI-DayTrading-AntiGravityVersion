@@ -2,12 +2,18 @@ import os
 from typing import Optional
 from pydantic_settings import BaseSettings
 
+from src.models.risk import RiskSettings
+
 class Settings(BaseSettings):
     """Application settings."""
     
     # App
     APP_NAME: str = "AI Day Trading Bot"
     DEBUG: bool = False
+    TRADING_ENABLED: bool = True
+    
+    # Risk Management
+    RISK_SETTINGS: RiskSettings = RiskSettings()
     
     # API Keys
     ALPHA_VANTAGE_API_KEY: Optional[str] = None

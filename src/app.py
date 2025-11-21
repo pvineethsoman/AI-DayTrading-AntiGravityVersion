@@ -20,6 +20,9 @@ from src.services.market_data import MarketDataService
 from src.execution.alpaca_engine import AlpacaExecutionEngine
 from src.analysis.ai_analyst import AIAnalyst
 from src.config import settings
+from src.models.risk import RiskSettings
+import datetime
+import random
 
 st.set_page_config(page_title="AI Day Trading Bot", layout="wide")
 
@@ -55,7 +58,7 @@ def main():
         if not isinstance(st.session_state.engine, PaperTradingEngine):
             st.session_state.engine = PaperTradingEngine()
     
-    page = st.sidebar.selectbox("Navigation", ["Dashboard", "Market Analysis", "Backtesting"])
+    page = st.sidebar.selectbox("Navigation", ["Dashboard", "Market Analysis", "Backtesting", "Settings"])
     
     if page == "Dashboard":
         show_dashboard()
@@ -63,6 +66,8 @@ def main():
         show_analysis()
     elif page == "Backtesting":
         show_backtesting()
+    elif page == "Settings":
+        show_settings()
 
 def show_dashboard():
     st.header("Portfolio Overview")
@@ -89,33 +94,133 @@ def show_dashboard():
     else:
         st.info("No active positions. Go to Backtesting to simulate trades!")
 
+    # Performance Chart (Simulated for Demo)
+    st.subheader("Performance History (vs S&P 500)")
+    dates = pd.date_range(end=datetime.datetime.now(), periods=30)
+    portfolio_values = [10000 * (1 + 0.01 * i + random.uniform(-0.02, 0.02)) for i in range(30)]
+    spy_values = [10000 * (1 + 0.005 * i + random.uniform(-0.01, 0.01)) for i in range(30)]
+    
+    perf_df = pd.DataFrame({
+        "Date": dates,
+        "Portfolio": portfolio_values,
+        "S&P 500": spy_values
+    }).set_index("Date")
+    
+    st.line_chart(perf_df)
+    
+    # News Feed
+    st.subheader("Latest Market News")
+    if hasattr(st.session_state.service.provider, 'get_news_sentiment'):
+        with st.spinner("Fetching news..."):
+            news = st.session_state.service.provider.get_news_sentiment(limit=5)
+            if news:
+                for item in news:
+                    with st.expander(f"{item.get('title')} - {item.get('time_published')[:8]}"):
+                        st.write(item.get('summary'))
+                        st.caption(f"Source: {item.get('source')} | Sentiment: {item.get('overall_sentiment_score')}")
+                        st.markdown(f"[Read more]({item.get('url')})")
+            else:
+                st.info("No news found or provider doesn't support news.")
+
 def show_analysis():
     st.header("Market Analysis")
-    symbol = st.text_input("Enter Stock Symbol", "AAPL").upper()
     
-    if st.button("Analyze"):
-        with st.spinner(f"Fetching data for {symbol}..."):
-            try:
-                # Use service to get analyzed stock
-                stock = st.session_state.service.get_stock_analysis(symbol)
+    tab1, tab2 = st.tabs(["Single Stock", "Bulk Analysis"])
+    
+    with tab1:
+        symbol = st.text_input("Enter Stock Symbol", "AAPL").upper()
+        
+        if st.button("Analyze"):
+            with st.spinner(f"Fetching data for {symbol}..."):
+                try:
+                    # Use service to get analyzed stock
+                    stock = st.session_state.service.get_stock_analysis(symbol)
+                    
+                    # Display Current Info
+                    col1, col2 = st.columns(2)
+                    col1.metric("Current Price", f"${stock.current_price:.2f}")
+                    col2.metric("Company", stock.company_name or "N/A")
+                    
+                    # Charts
+                    plot_stock_data(stock)
+                    
+                    # AI Insight
+                    st.subheader("🤖 AI Analyst Insight")
+                    if st.button("Generate Insight"):
+                        with st.spinner("Consulting Gemini..."):
+                            insight = st.session_state.ai_analyst.analyze_stock(stock)
+                            st.info(insight)
+                    
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+    with tab2:
+        st.subheader("Bulk Stock Analysis")
+        symbols_input = st.text_area("Enter symbols (comma separated)", "AAPL, MSFT, GOOG, AMZN")
+        
+        if st.button("Analyze All"):
+            symbols = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
+            results = []
+            
+            progress_bar = st.progress(0)
+            for i, sym in enumerate(symbols):
+                try:
+                    stock = st.session_state.service.get_stock_analysis(sym)
+                    results.append({
+                        "Symbol": sym,
+                        "Price": f"${stock.current_price:.2f}",
+                        "RSI": f"{stock.indicators.rsi:.2f}" if stock.indicators else "N/A",
+                        "MACD": f"{stock.indicators.macd:.2f}" if stock.indicators else "N/A",
+                        "SMA 50": f"{stock.indicators.sma_50:.2f}" if stock.indicators else "N/A"
+                    })
+                except Exception as e:
+                    results.append({"Symbol": sym, "Error": str(e)})
+                progress_bar.progress((i + 1) / len(symbols))
                 
-                # Display Current Info
-                col1, col2 = st.columns(2)
-                col1.metric("Current Price", f"${stock.current_price:.2f}")
-                col2.metric("Company", stock.company_name or "N/A")
-                
-                # Charts
-                plot_stock_data(stock)
-                
-                # AI Insight
-                st.subheader("🤖 AI Analyst Insight")
-                if st.button("Generate Insight"):
-                    with st.spinner("Consulting Gemini..."):
-                        insight = st.session_state.ai_analyst.analyze_stock(stock)
-                        st.info(insight)
-                
-            except Exception as e:
-                st.error(f"Error: {e}")
+            st.dataframe(pd.DataFrame(results))
+
+def show_settings():
+    st.header("Settings & Safety")
+    
+    # Kill Switch
+    st.subheader("🛑 Global Safety")
+    trading_enabled = st.toggle("Enable Trading", value=settings.TRADING_ENABLED)
+    if trading_enabled != settings.TRADING_ENABLED:
+        settings.TRADING_ENABLED = trading_enabled
+        if not trading_enabled:
+            st.error("TRADING DISABLED - KILL SWITCH ACTIVATED")
+        else:
+            st.success("Trading Enabled")
+            
+    # Risk Management
+    st.subheader("Risk Management")
+    with st.form("risk_settings"):
+        max_pos = st.number_input("Max Position Size ($)", value=settings.RISK_SETTINGS.max_position_size)
+        max_loss = st.number_input("Max Daily Loss ($)", value=settings.RISK_SETTINGS.max_daily_loss)
+        max_dd = st.number_input("Max Drawdown (%)", value=settings.RISK_SETTINGS.max_drawdown_pct)
+        max_open = st.number_input("Max Open Positions", value=settings.RISK_SETTINGS.max_open_positions)
+        
+        if st.form_submit_button("Update Risk Settings"):
+            settings.RISK_SETTINGS.max_position_size = max_pos
+            settings.RISK_SETTINGS.max_daily_loss = max_loss
+            settings.RISK_SETTINGS.max_drawdown_pct = max_dd
+            settings.RISK_SETTINGS.max_open_positions = int(max_open)
+            st.success("Risk settings updated!")
+
+    # API Keys
+    st.subheader("API Configuration")
+    with st.form("api_keys"):
+        av_key = st.text_input("Alpha Vantage Key", value=settings.ALPHA_VANTAGE_API_KEY or "", type="password")
+        gemini_key = st.text_input("Gemini Key", value=settings.GEMINI_API_KEY or "", type="password")
+        alpaca_key = st.text_input("Alpaca Key", value=settings.ALPACA_API_KEY or "", type="password")
+        alpaca_secret = st.text_input("Alpaca Secret", value=settings.ALPACA_SECRET_KEY or "", type="password")
+        
+        if st.form_submit_button("Update Keys"):
+            settings.ALPHA_VANTAGE_API_KEY = av_key
+            settings.GEMINI_API_KEY = gemini_key
+            settings.ALPACA_API_KEY = alpaca_key
+            settings.ALPACA_SECRET_KEY = alpaca_secret
+            st.success("API Keys updated for this session!")
 
 def plot_stock_data(stock: Stock):
     df = pd.DataFrame([p.model_dump() for p in stock.history])

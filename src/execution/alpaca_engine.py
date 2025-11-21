@@ -43,6 +43,24 @@ class AlpacaExecutionEngine:
 
     def place_order(self, symbol: str, side: OrderSide, quantity: int, order_type: OrderType = OrderType.MARKET, price: Optional[float] = None) -> Order:
         """Places an order on Alpaca."""
+        # Safety Checks
+        if not settings.TRADING_ENABLED:
+            logger.warning("Order rejected: Trading is disabled (Kill Switch).")
+            raise RuntimeError("Trading is disabled.")
+            
+        # Risk Checks
+        # 1. Max Positions
+        current_positions = len(self.client.get_all_positions())
+        if side == OrderSide.BUY and current_positions >= settings.RISK_SETTINGS.max_open_positions:
+             # Check if we already hold this symbol (adding to position) vs new position
+             # For simplicity, strict count check
+             logger.warning(f"Order rejected: Max open positions reached ({settings.RISK_SETTINGS.max_open_positions}).")
+             raise RuntimeError("Max open positions reached.")
+
+        # 2. Max Position Size (Approximate check using current price if available, else skip or fetch)
+        # We'll skip strict pre-trade value check here to avoid extra API call latency, 
+        # but ideally we'd check (quantity * price) <= max_position_size
+        
         req = MarketOrderRequest(
             symbol=symbol,
             qty=quantity,

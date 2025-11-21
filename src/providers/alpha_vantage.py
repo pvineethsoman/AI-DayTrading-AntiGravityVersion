@@ -48,6 +48,29 @@ class AlphaVantageProvider(StockDataProvider):
             # For now we leave these as None or could fetch separately
         )
 
+    @RateLimiter(max_calls=5, period=60)
+    def get_news_sentiment(self, symbol: Optional[str] = None, limit: int = 5) -> list:
+        """Fetches news sentiment data."""
+        # Note: This endpoint might require a premium key for some features, but basic usage is often free
+        # We construct the URL manually or use the library if supported. 
+        # The alpha_vantage library's TimeSeries doesn't have news. We need a separate request or class.
+        # For simplicity, we'll use requests here if the lib doesn't support it, 
+        # but let's check if we can use the FundamentalData class or similar from the lib.
+        # Actually, let's just use requests to be sure.
+        
+        import requests
+        url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&apikey={self.api_key}&limit={limit}"
+        if symbol:
+            url += f"&tickers={symbol}"
+            
+        try:
+            response = requests.get(url)
+            data = response.json()
+            return data.get('feed', [])
+        except Exception as e:
+            print(f"Error fetching news: {e}")
+            return []
+
     def get_current_price(self, symbol: str) -> float:
         # Global Quote endpoint for current price
         # Note: This requires a separate call and might hit rate limits on free tier
