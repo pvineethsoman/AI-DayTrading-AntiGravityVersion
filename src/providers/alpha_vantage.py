@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional
 from src.models.domain import Stock, Price
 from src.providers.base import StockDataProvider
+from src.infrastructure.throttling import RateLimiter
 
 class AlphaVantageProvider(StockDataProvider):
     """Implementation of StockDataProvider using Alpha Vantage."""
@@ -14,6 +15,7 @@ class AlphaVantageProvider(StockDataProvider):
             raise ValueError("Alpha Vantage API key is required")
         self.ts = TimeSeries(key=self.api_key, output_format='pandas')
 
+    @RateLimiter(max_calls=5, period=60)
     def get_stock_data(self, symbol: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> Stock:
         # Alpha Vantage free tier has limits, so we'll use daily adjusted
         data, meta_data = self.ts.get_daily_adjusted(symbol=symbol, outputsize='full')

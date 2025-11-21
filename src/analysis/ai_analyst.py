@@ -1,6 +1,7 @@
 import google.generativeai as genai
 from src.models.domain import Stock
 from src.config import settings
+from src.infrastructure.throttling import RateLimiter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ class AIAnalyst:
         genai.configure(api_key=settings.GEMINI_API_KEY)
         self.model = genai.GenerativeModel('gemini-pro')
 
+    @RateLimiter(max_calls=60, period=60)
     def analyze_stock(self, stock: Stock) -> str:
         """Generates a text analysis of the stock."""
         if not self.model:
