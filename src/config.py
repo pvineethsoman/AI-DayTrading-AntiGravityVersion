@@ -15,6 +15,25 @@ from dotenv import load_dotenv
 print(f"Loading .env from: {ENV_FILE}")
 load_dotenv(ENV_FILE)
 
+# Load Streamlit secrets if available (for Streamlit Cloud)
+try:
+    import streamlit as st
+    # Check if secrets are available (they might not be during build)
+    if hasattr(st, "secrets") and st.secrets:
+        print("Loading secrets from Streamlit Cloud...")
+        for key, value in st.secrets.items():
+            # Pydantic expects environment variables to be strings
+            if isinstance(value, str):
+                os.environ[key] = value
+            # Handle nested sections (e.g. [api_keys]) if user used TOML sections
+            elif isinstance(value, dict): 
+                for sub_key, sub_value in value.items():
+                    os.environ[sub_key] = str(sub_value)
+except ImportError:
+    pass
+except Exception as e:
+    print(f"Warning: Could not load Streamlit secrets: {e}")
+
 class Settings(BaseSettings):
     """Application settings."""
     
