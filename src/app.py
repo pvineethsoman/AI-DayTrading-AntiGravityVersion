@@ -122,35 +122,43 @@ def main():
     apply_custom_css()
     st.title("📈 AI Institutional Trader")
     
-    # Sidebar Config
-    st.sidebar.header("Configuration")
-    st.sidebar.header("Configuration")
-    engine_type = st.sidebar.radio("Execution Engine", ["Paper Trading", "Alpaca (Live/Paper)"])
+    # Sidebar Layout
+    st.sidebar.image("https://img.icons8.com/fluency/96/bullish.png", width=64)
+    st.sidebar.title("AI Trader")
     
-    # AI Strategy Persona
-    st.sidebar.header("AI Strategy")
+    # Navigation (Top Priority)
+    page = st.sidebar.radio("Navigation", ["Dashboard", "Market Analysis", "Agent Command Center", "Backtesting", "Settings"])
+    
+    st.sidebar.markdown("---")
+    
+    # AI Strategy
+    st.sidebar.subheader("🧠 AI Strategy")
     ai_persona = st.sidebar.selectbox(
-        "Investment Persona",
+        "Persona",
         ["General", "Warren Buffett", "Peter Lynch", "Benjamin Graham"],
         index=0
     )
     st.session_state.ai_persona = ai_persona
+    
+    st.sidebar.markdown("---")
+
+    # Execution Config
+    st.sidebar.caption("Execution Mode")
+    engine_type = st.sidebar.radio("Engine", ["Paper Trading", "Alpaca (Live/Paper)"], label_visibility="collapsed")
     
     if engine_type == "Alpaca (Live/Paper)":
         if settings.ALPACA_API_KEY:
             if not isinstance(st.session_state.engine, AlpacaExecutionEngine):
                 try:
                     st.session_state.engine = AlpacaExecutionEngine()
-                    st.sidebar.success("Connected to Alpaca")
+                    st.sidebar.success("Connected: Alpaca")
                 except Exception as e:
-                    st.sidebar.error(f"Alpaca Connection Failed: {e}")
+                    st.sidebar.error(f"Alpaca Error: {e}")
         else:
-            st.sidebar.warning("Alpaca Keys Missing in .env")
+            st.sidebar.warning("Alpaca Keys Missing")
     else:
         if not isinstance(st.session_state.engine, PaperTradingEngine):
             st.session_state.engine = PaperTradingEngine()
-    
-    page = st.sidebar.radio("Navigation", ["Dashboard", "Market Analysis", "Agent Command Center", "Backtesting", "Settings"])
     
     if page == "Dashboard":
         show_dashboard()

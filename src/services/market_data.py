@@ -104,3 +104,14 @@ class MarketDataService:
         except Exception as e:
             logger.error(f"Analysis failed for {symbol}: {e}")
             raise e
+
+    def get_market_news(self, symbol: str = None, limit: int = 5) -> list:
+        """Fetches market news, preferring Alpha Vantage if available."""
+        if self.av_provider:
+            try:
+                return self.av_provider.get_news_sentiment(symbol, limit)
+            except Exception as e:
+                logger.warning(f"AV News failed: {e}")
+        
+        # Fallback could go here (e.g. Yahoo News RSS)
+        return []
