@@ -151,7 +151,9 @@ def apply_custom_css():
         /* Buttons - Ensure High Contrast */
         .stButton > button,
         button[kind="primary"],
-        button[kind="secondary"] {
+        button[kind="secondary"],
+        button[type="submit"],
+        .stFormSubmitButton > button {
             background-color: #004687 !important;
             color: white !important;
             border-radius: 4px !important;
@@ -161,10 +163,33 @@ def apply_custom_css():
         }
         .stButton > button:hover,
         button[kind="primary"]:hover,
-        button[kind="secondary"]:hover {
+        button[kind="secondary"]:hover,
+        button[type="submit"]:hover,
+        .stFormSubmitButton > button:hover {
             background-color: #003366 !important;
             color: white !important;
         }
+        
+        /* Radio Buttons - Fix visibility */
+        .stRadio > label,
+        .stRadio > div {
+            color: #1a1a1a !important;
+        }
+        
+        .stRadio > div > label {
+            color: #1a1a1a !important;
+            background-color: transparent !important;
+        }
+        
+        .stRadio input[type="radio"] {
+            accent-color: #004687 !important;
+        }
+        
+        /* Radio button text */
+        .stRadio > div > label > div {
+            color: #1a1a1a !important;
+        }
+
         
         /* Cards/Containers */
         .css-1r6slb0 {
