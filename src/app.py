@@ -92,6 +92,38 @@ def apply_custom_css():
             color: #333 !important;
         }
         
+        /* Selectbox Dropdown - Fix visibility */
+        [data-testid="stSidebar"] select,
+        [data-testid="stSidebar"] option {
+            background-color: #ffffff !important;
+            color: #1a1a1a !important;
+        }
+        
+        /* Main Content Area - All Labels Visible */
+        label, .stTextInput label, .stNumberInput label, .stSelectbox label {
+            color: #1a1a1a !important;
+            font-weight: 500;
+        }
+        
+        /* Text Inputs - Ensure visibility */
+        input[type="text"], input[type="number"], input[type="password"] {
+            background-color: #ffffff !important;
+            color: #1a1a1a !important;
+            border: 1px solid #ccc !important;
+        }
+        
+        /* Selectbox in main area */
+        select {
+            background-color: #ffffff !important;
+            color: #1a1a1a !important;
+            border: 1px solid #ccc !important;
+        }
+        
+        option {
+            background-color: #ffffff !important;
+            color: #1a1a1a !important;
+        }
+        
         /* Metrics */
         [data-testid="stMetricValue"] {
             font-family: 'Arial', sans-serif;
@@ -111,18 +143,18 @@ def apply_custom_css():
             border-radius: 4px;
         }
         
-        /* Buttons */
+        /* Buttons - Ensure High Contrast */
         .stButton button {
-            background-color: #004687;
-            color: white;
+            background-color: #004687 !important;
+            color: white !important;
             border-radius: 4px;
             border: none;
             padding: 0.5rem 1rem;
             font-weight: 500;
         }
         .stButton button:hover {
-            background-color: #003366;
-            color: white;
+            background-color: #003366 !important;
+            color: white !important;
         }
         
         /* Cards/Containers */
@@ -152,7 +184,7 @@ def main():
     st.sidebar.subheader("🧠 AI Strategy")
     ai_persona = st.sidebar.selectbox(
         "Persona",
-        ["General", "Warren Buffett", "Peter Lynch", "Benjamin Graham"],
+        ["General", "Warren Buffett", "Peter Lynch", "Benjamin Graham", "Joel Greenblatt", "Philip Fisher", "John Templeton"],
         index=0
     )
     st.session_state.ai_persona = ai_persona
@@ -262,24 +294,35 @@ def show_analysis():
                 try:
                     # Use service to get analyzed stock
                     stock = st.session_state.service.get_stock_analysis(symbol)
-                    
-                    # Display Current Info
-                    col1, col2 = st.columns(2)
-                    col1.metric("Current Price", f"${stock.current_price:.2f}")
-                    col2.metric("Company", stock.company_name or "N/A")
-                    
-                    # Charts
-                    plot_stock_data(stock)
-                    
-                    # AI Insight
-                    st.subheader("🤖 AI Analyst Insight")
-                    if st.button("Generate Insight", key=f"insight_{symbol}"):
-                        with st.spinner(f"Consulting {st.session_state.ai_persona}..."):
-                            insight = st.session_state.ai_analyst.analyze_stock(stock, persona=st.session_state.ai_persona)
-                            st.info(insight)
-                    
+                    # Store in session state to persist across reruns
+                    st.session_state.current_stock = stock
+                    st.session_state.current_symbol = symbol
                 except Exception as e:
                     st.error(f"Error: {e}")
+                    st.session_state.current_stock = None
+        
+        # Display analysis if stock data exists in session state
+        if hasattr(st.session_state, 'current_stock') and st.session_state.current_stock:
+            stock = st.session_state.current_stock
+            
+            # Display Current Info
+            col1, col2 = st.columns(2)
+            col1.metric("Current Price", f"${stock.current_price:.2f}")
+            col2.metric("Company", stock.company_name or "N/A")
+            
+            # Charts
+            plot_stock_data(stock)
+            
+            # AI Insight
+            st.subheader("🤖 AI Analyst Insight")
+            if st.button("Generate Insight", key=f"insight_{st.session_state.current_symbol}"):
+                with st.spinner(f"Consulting {st.session_state.ai_persona}..."):
+                    insight = st.session_state.ai_analyst.analyze_stock(stock, persona=st.session_state.ai_persona)
+                    st.session_state.current_insight = insight
+            
+            # Display insight if it exists
+            if hasattr(st.session_state, 'current_insight') and st.session_state.current_insight:
+                st.info(st.session_state.current_insight)
 
     with tab2:
         st.subheader("Bulk Stock Analysis")
