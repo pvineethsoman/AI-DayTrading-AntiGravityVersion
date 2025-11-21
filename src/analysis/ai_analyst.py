@@ -36,7 +36,8 @@ class AIAnalyst:
         # Gemini Setup
         if gemini_key:
             genai.configure(api_key=gemini_key)
-            self.gemini_model = genai.GenerativeModel('gemini-pro')
+            # Use gemini-1.5-flash as it is the current stable and fast model
+            self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
         else:
             logger.warning("Gemini API key not configured.")
             self.gemini_model = None
