@@ -12,13 +12,37 @@ class AlpacaExecutionEngine:
     """Execution engine using Alpaca API."""
     
     def __init__(self):
-        if not settings.ALPACA_API_KEY or not settings.ALPACA_SECRET_KEY:
+        api_key = settings.ALPACA_API_KEY
+        secret_key = settings.ALPACA_SECRET_KEY
+        paper = settings.ALPACA_PAPER
+        
+        # Direct Streamlit Secrets Access (Fallback)
+        if not api_key or not secret_key:
+            try:
+                import streamlit as st
+                if hasattr(st, "secrets"):
+                    if not api_key:
+                        api_key = st.secrets.get("ALPACA_API_KEY")
+                    if not secret_key:
+                        secret_key = st.secrets.get("ALPACA_SECRET_KEY")
+                    
+                    # Handle paper mode override from secrets if needed
+                    if "ALPACA_PAPER" in st.secrets:
+                        paper_val = st.secrets.get("ALPACA_PAPER")
+                        if isinstance(paper_val, str):
+                            paper = paper_val.lower() == "true"
+                        else:
+                            paper = bool(paper_val)
+            except Exception:
+                pass
+
+        if not api_key or not secret_key:
             raise ValueError("Alpaca API keys not configured")
             
         self.client = TradingClient(
-            api_key=settings.ALPACA_API_KEY,
-            secret_key=settings.ALPACA_SECRET_KEY,
-            paper=settings.ALPACA_PAPER
+            api_key=api_key,
+            secret_key=secret_key,
+            paper=paper
         )
 
     def get_account(self):

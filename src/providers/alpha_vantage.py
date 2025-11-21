@@ -11,6 +11,15 @@ class AlphaVantageProvider(StockDataProvider):
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv('ALPHA_VANTAGE_API_KEY')
+        
+        # Fallback to Streamlit Secrets
+        if not self.api_key:
+            try:
+                import streamlit as st
+                if hasattr(st, "secrets"):
+                    self.api_key = st.secrets.get("ALPHA_VANTAGE_API_KEY")
+            except Exception:
+                pass
         if self.api_key:
             self.ts = TimeSeries(key=self.api_key, output_format='pandas')
         else:

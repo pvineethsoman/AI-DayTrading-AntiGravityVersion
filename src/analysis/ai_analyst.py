@@ -12,17 +12,38 @@ class AIAnalyst:
     """Uses Google Gemini (Primary) and OpenAI (Failover) to analyze stock data."""
     
     def __init__(self):
+        # Try to get keys from settings, or fallback to st.secrets directly
+        gemini_key = settings.GEMINI_API_KEY
+        openai_key = settings.OPENAI_API_KEY
+        
+        # Direct Streamlit Secrets Access (Fallback)
+        if not gemini_key:
+            try:
+                import streamlit as st
+                if hasattr(st, "secrets"):
+                    gemini_key = st.secrets.get("GEMINI_API_KEY")
+            except Exception: 
+                pass
+            
+        if not openai_key:
+            try:
+                import streamlit as st
+                if hasattr(st, "secrets"):
+                    openai_key = st.secrets.get("OPENAI_API_KEY")
+            except Exception: 
+                pass
+
         # Gemini Setup
-        if settings.GEMINI_API_KEY:
-            genai.configure(api_key=settings.GEMINI_API_KEY)
+        if gemini_key:
+            genai.configure(api_key=gemini_key)
             self.gemini_model = genai.GenerativeModel('gemini-pro')
         else:
             logger.warning("Gemini API key not configured.")
             self.gemini_model = None
             
         # OpenAI Setup
-        if settings.OPENAI_API_KEY:
-            self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        if openai_key:
+            self.openai_client = OpenAI(api_key=openai_key)
         else:
             logger.warning("OpenAI API key not configured.")
             self.openai_client = None
