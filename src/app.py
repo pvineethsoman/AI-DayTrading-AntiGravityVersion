@@ -75,6 +75,23 @@ def apply_custom_css():
             border-right: 1px solid #e0e0e0;
         }
         
+        /* Sidebar Text - Force Dark Color */
+        [data-testid="stSidebar"] * {
+            color: #1a1a1a !important;
+        }
+        
+        /* Sidebar Headers */
+        [data-testid="stSidebar"] h1,
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3 {
+            color: #004687 !important;
+        }
+        
+        /* Sidebar Radio/Selectbox Labels */
+        [data-testid="stSidebar"] label {
+            color: #333 !important;
+        }
+        
         /* Metrics */
         [data-testid="stMetricValue"] {
             font-family: 'Arial', sans-serif;
