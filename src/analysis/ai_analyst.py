@@ -102,7 +102,18 @@ class AIAnalyst:
                 return f"**[OpenAI - {persona}]**: {response.choices[0].message.content}"
             except Exception as e:
                 logger.error(f"OpenAI analysis failed: {e}")
-                return f"Error: Both AI models failed.\n\nGemini Error: {gemini_error}\nOpenAI Error: {e}"
+                
+                # Debug: List available OpenAI models
+                openai_debug = ""
+                try:
+                    models = self.openai_client.models.list()
+                    # Filter for likely chat models to keep list readable
+                    names = [m.id for m in models.data if "gpt" in m.id]
+                    openai_debug = "\n\n**Available OpenAI Models:**\n" + ", ".join(names)
+                except Exception as list_err:
+                    openai_debug = f"\n\n(Could not list OpenAI models: {list_err})"
+                
+                return f"Error: Both AI models failed.\n\nGemini Error: {gemini_error}\nOpenAI Error: {e}{openai_debug}"
                 
         # If we get here, it means:
         # 1. No models configured OR
