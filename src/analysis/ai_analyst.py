@@ -42,8 +42,15 @@ class AIAnalyst:
         """
         
         try:
+            # Check if we have a recent cached response (simulated for now, or use streamlit cache if we move this to a function)
+            # For now, we'll rely on the app-level caching or just handle errors gracefully
             response = self.model.generate_content(prompt)
-            return response.text
+            if response.text:
+                return response.text
+            else:
+                return "AI returned empty response."
         except Exception as e:
             logger.error(f"Gemini analysis failed: {e}")
-            return f"Error generating analysis: {e}"
+            if "429" in str(e):
+                return "AI Rate Limit Exceeded. Try again later."
+            return f"Error generating analysis: {str(e)[:100]}..."

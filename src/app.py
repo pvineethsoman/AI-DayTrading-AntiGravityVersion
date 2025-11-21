@@ -43,8 +43,67 @@ if 'engine' not in st.session_state:
 if 'watchlist' not in st.session_state:
     st.session_state.watchlist = []
 
+def apply_custom_css():
+    st.markdown("""
+        <style>
+        /* Professional Theme (Schwab-like) */
+        .stApp {
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        
+        /* Sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #ffffff;
+            border-right: 1px solid #e0e0e0;
+        }
+        
+        /* Metrics */
+        [data-testid="stMetricValue"] {
+            font-family: 'Arial', sans-serif;
+            font-weight: 600;
+            color: #004687; /* Schwab Blue */
+        }
+        
+        /* Headers */
+        h1, h2, h3 {
+            font-family: 'Arial', sans-serif;
+            color: #1a1a1a;
+        }
+        
+        /* Dataframes */
+        [data-testid="stDataFrame"] {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        
+        /* Buttons */
+        .stButton button {
+            background-color: #004687;
+            color: white;
+            border-radius: 4px;
+            border: none;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+        }
+        .stButton button:hover {
+            background-color: #003366;
+            color: white;
+        }
+        
+        /* Cards/Containers */
+        .css-1r6slb0 {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
 def main():
-    st.title("🤖 AI Day Trading Bot")
+    apply_custom_css()
+    st.title("📈 AI Institutional Trader")
     
     # Sidebar Config
     st.sidebar.header("Configuration")
@@ -78,51 +137,6 @@ def main():
         show_settings()
 
 def show_dashboard():
-    st.header("Portfolio Overview")
-    
-    portfolio = st.session_state.engine.portfolio
-    
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Value", f"${portfolio.total_value:,.2f}")
-    col2.metric("Cash Balance", f"${portfolio.cash:,.2f}")
-    col3.metric("Active Positions", len(portfolio.positions))
-    
-    if portfolio.positions:
-        st.subheader("Current Positions")
-        data = []
-        for sym, pos in portfolio.positions.items():
-            data.append({
-                "Symbol": sym,
-                "Quantity": pos.quantity,
-                "Avg Price": f"${pos.average_price:.2f}",
-                "Current Price": f"${pos.current_price:.2f}",
-                "Unrealized PnL": f"${pos.unrealized_pnl:.2f}"
-            })
-        st.dataframe(pd.DataFrame(data))
-    else:
-        st.info("No active positions. Go to Backtesting to simulate trades!")
-
-    # Performance Chart (Simulated for Demo)
-    st.subheader("Performance History (vs S&P 500)")
-    dates = pd.date_range(end=datetime.datetime.now(), periods=30)
-    portfolio_values = [10000 * (1 + 0.01 * i + random.uniform(-0.02, 0.02)) for i in range(30)]
-    spy_values = [10000 * (1 + 0.005 * i + random.uniform(-0.01, 0.01)) for i in range(30)]
-    
-    perf_df = pd.DataFrame({
-        "Date": dates,
-        "Portfolio": portfolio_values,
-        "S&P 500": spy_values
-    }).set_index("Date")
-    
-    st.line_chart(perf_df)
-    
-    # News Feed
-    st.subheader("Latest Market News")
-    if hasattr(st.session_state.service.provider, 'get_news_sentiment'):
-        with st.spinner("Fetching news..."):
-            news = st.session_state.service.provider.get_news_sentiment(limit=5)
-            if news:
-                for item in news:
                     with st.expander(f"{item.get('title')} - {item.get('time_published')[:8]}"):
                         st.write(item.get('summary'))
                         st.caption(f"Source: {item.get('source')} | Sentiment: {item.get('overall_sentiment_score')}")

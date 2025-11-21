@@ -34,19 +34,31 @@ class MarketDataService:
         cache_key = f"stock_analysis:{symbol}"
         
         if not force_refresh:
-            cached_data = self.cache.get(cache_key)
-            if cached_data:
-                logger.info(f"Cache hit for {symbol}")
-                return Stock.model_validate(cached_data)
+            try:
+                cached_data = self.cache.get(cache_key)
+                if cached_data:
+                    logger.info(f"Cache hit for {symbol}")
+                    return Stock.model_validate(cached_data)
+            except Exception as e:
+                logger.warning(f"Cache read failed: {e}")
                 
         logger.info(f"Fetching fresh data for {symbol}")
-        # Fetch fresh data
-        stock = self.provider.get_stock_data(symbol)
         
-        # Run analysis
-        stock.indicators = TechnicalAnalyzer.calculate_indicators(stock)
-        
-        # Cache result (serialize to dict/json)
-        self.cache.set(cache_key, stock.model_dump(mode='json'), expire=300) # 5 min cache
-        
-        return stock
+        try:
+            # Fetch fresh data
+            stock = self.provider.get_stock_data(symbol)
+            
+            # Run analysis
+            stock.indicators = TechnicalAnalyzer.calculate_indicators(stock)
+            
+            # Cache result (serialize to dict/json)
+            try:
+                self.cache.set(cache_key, stock.model_dump(mode='json'), expire=300) # 5 min cache
+            except Exception as e:
+                logger.warning(f"Cache write failed: {e}")
+            
+            return stock
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch/analyze stock {symbol}: {e}")
+            raise e
