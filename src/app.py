@@ -25,6 +25,8 @@ from src.models.watchlist import WatchlistItem
 from src.models.trading import OrderSide, OrderType
 import datetime
 import random
+from src.services.scanner import MarketScanner
+from src.services.portfolio_manager import PortfolioManager
 
 st.set_page_config(page_title="AI Day Trading Bot", layout="wide")
 
@@ -38,6 +40,17 @@ if 'ai_analyst' not in st.session_state:
 if 'engine' not in st.session_state:
     # Default to Paper
     st.session_state.engine = PaperTradingEngine()
+
+# Agent Services
+if 'scanner' not in st.session_state:
+    st.session_state.scanner = MarketScanner()
+if 'portfolio_manager' not in st.session_state:
+    st.session_state.portfolio_manager = PortfolioManager(
+        st.session_state.service,
+        st.session_state.ai_analyst,
+        st.session_state.engine,
+        st.session_state.scanner
+    )
 
 # Watchlist
 if 'watchlist' not in st.session_state:
@@ -133,14 +146,14 @@ def main():
         if not isinstance(st.session_state.engine, PaperTradingEngine):
             st.session_state.engine = PaperTradingEngine()
     
-    page = st.sidebar.radio("Navigation", ["Dashboard", "Market Analysis", "Auto-Trading", "Backtesting", "Settings"])
+    page = st.sidebar.radio("Navigation", ["Dashboard", "Market Analysis", "Agent Command Center", "Backtesting", "Settings"])
     
     if page == "Dashboard":
         show_dashboard()
     elif page == "Market Analysis":
         show_analysis()
-    elif page == "Auto-Trading":
-        show_auto_trading()
+    elif page == "Agent Command Center":
+        show_agent_dashboard()
     elif page == "Backtesting":
         show_backtesting()
     elif page == "Settings":
@@ -211,150 +224,72 @@ def show_analysis():
                 
             st.dataframe(pd.DataFrame(results))
 
-def show_auto_trading():
-    st.header("🤖 Auto-Trading Watchlist")
+def show_agent_dashboard():
+    st.header("🤖 Agent Command Center")
     
     # Safety Check
     if not settings.TRADING_ENABLED:
-        st.error("⚠️ TRADING IS DISABLED - Enable trading in Settings to use Auto-Trading")
+        st.error("⚠️ TRADING IS DISABLED - Enable trading in Settings to use the Agent")
         return
     
-    col1, col2 = st.columns([2, 1])
-    
+    # Agent Controls
+    col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        st.subheader("Watchlist")
-        
-        # Add symbol to watchlist
-        new_symbol = st.text_input("Add Symbol to Watchlist", "").upper()
-        if st.button("Add to Watchlist") and new_symbol:
-            if not any(item.symbol == new_symbol for item in st.session_state.watchlist):
-                st.session_state.watchlist.append(WatchlistItem(symbol=new_symbol))
-                st.success(f"Added {new_symbol} to watchlist")
-            else:
-                st.warning(f"{new_symbol} already in watchlist")
-        
-        # Display watchlist
-        if st.session_state.watchlist:
-            watchlist_data = []
-            for item in st.session_state.watchlist:
-                watchlist_data.append({
-                    "Symbol": item.symbol,
-                    "Auto-Trade": "✅" if item.auto_trade else "❌",
-                    "Last Signal": item.last_signal or "N/A",
-                    "Last Analyzed": item.last_analyzed.strftime("%Y-%m-%d %H:%M") if item.last_analyzed else "Never"
-                })
-            st.dataframe(pd.DataFrame(watchlist_data))
-            
-            # Remove symbol
-            remove_symbol = st.selectbox("Remove Symbol", [""] + [item.symbol for item in st.session_state.watchlist])
-            if st.button("Remove") and remove_symbol:
-                st.session_state.watchlist = [item for item in st.session_state.watchlist if item.symbol != remove_symbol]
-                st.success(f"Removed {remove_symbol}")
-                st.rerun()
-        else:
-            st.info("No symbols in watchlist. Add symbols above.")
-    
+        st.metric("Agent Status", "Ready", "Idle")
     with col2:
-        st.subheader("Actions")
-        
-        if st.button("🔍 Analyze All", type="primary"):
-            if not st.session_state.watchlist:
-                st.warning("Watchlist is empty")
-            else:
-                analyze_and_trade_watchlist()
-
-def analyze_and_trade_watchlist():
-    """Analyze all watchlist stocks and execute trades based on signals."""
-    st.subheader("Analysis Results")
-    
-    results = []
-    trades_executed = []
-    
-    progress_bar = st.progress(0)
-    for i, item in enumerate(st.session_state.watchlist):
-        try:
-            # Analyze stock
-            stock = st.session_state.service.get_stock_analysis(item.symbol)
-            
-            # Generate signal based on RSI and AI
-            signal = "HOLD"
-            reason = ""
-            
-            if stock.indicators:
-                # Simple trading logic
-                if stock.indicators.rsi < 30:
-                    signal = "BUY"
-                    reason = f"RSI oversold ({stock.indicators.rsi:.1f})"
-                elif stock.indicators.rsi > 70:
-                    signal = "SELL"
-                    reason = f"RSI overbought ({stock.indicators.rsi:.1f})"
+        st.metric("Active Persona", st.session_state.ai_persona)
+    with col3:
+        if st.button("🚀 Run Agent Cycle Now", type="primary", use_container_width=True):
+            with st.status("Agent Running...", expanded=True) as status:
+                st.write("🔍 Scanning Market & Watchlist...")
+                watchlist_symbols = [item.symbol for item in st.session_state.watchlist]
                 
-                # Get AI confirmation
-                try:
-                    # Use selected persona for auto-trading analysis too
-                    ai_insight = st.session_state.ai_analyst.analyze_stock(stock, persona=st.session_state.get('ai_persona', 'General'))
-                    if "bullish" in ai_insight.lower() and signal != "SELL":
-                        signal = "BUY"
-                        reason += " + AI Bullish"
-                    elif "bearish" in ai_insight.lower() and signal != "BUY":
-                        signal = "SELL"
-                        reason += " + AI Bearish"
-                except:
-                    pass
-            
-            # Update watchlist item
-            item.last_analyzed = datetime.datetime.now()
-            item.last_signal = signal
-            
-            results.append({
-                "Symbol": item.symbol,
-                "Price": f"${stock.current_price:.2f}",
-                "Signal": signal,
-                "Reason": reason,
-                "Auto-Trade": "✅" if item.auto_trade else "❌"
-            })
-            
-            # Execute trade if auto-trade enabled
-            if item.auto_trade and signal in ["BUY", "SELL"]:
-                try:
-                    # Calculate position size (simple: $1000 per trade or max position size)
-                    position_value = min(1000, settings.RISK_SETTINGS.max_position_size)
-                    quantity = int(position_value / stock.current_price)
-                    
-                    if quantity > 0:
-                        order_side = OrderSide.BUY if signal == "BUY" else OrderSide.SELL
-                        order = st.session_state.engine.place_order(
-                            symbol=item.symbol,
-                            side=order_side,
-                            quantity=quantity,
-                            order_type=OrderType.MARKET
-                        )
-                        trades_executed.append({
-                            "Symbol": item.symbol,
-                            "Action": signal,
-                            "Quantity": quantity,
-                            "Order ID": order.id
-                        })
-                except Exception as e:
-                    st.error(f"Failed to execute trade for {item.symbol}: {e}")
-            
-        except Exception as e:
-            results.append({
-                "Symbol": item.symbol,
-                "Error": str(e)
-            })
-        
-        progress_bar.progress((i + 1) / len(st.session_state.watchlist))
-    
-    # Display results
-    st.dataframe(pd.DataFrame(results))
-    
-    # Display executed trades
-    if trades_executed:
-        st.success(f"✅ Executed {len(trades_executed)} trades")
-        st.dataframe(pd.DataFrame(trades_executed))
+                st.session_state.portfolio_manager.run_cycle(
+                    persona=st.session_state.ai_persona,
+                    watchlist=watchlist_symbols
+                )
+                status.update(label="Agent Cycle Complete", state="complete", expanded=False)
+                st.rerun()
+
+    # Activity Log
+    st.subheader("📜 Agent Activity Log")
+    if st.session_state.portfolio_manager.decisions_log:
+        log_df = pd.DataFrame(st.session_state.portfolio_manager.decisions_log)
+        st.dataframe(
+            log_df, 
+            column_config={
+                "time": "Time",
+                "symbol": "Symbol",
+                "action": st.column_config.TextColumn("Action", help="Buy/Sell/Hold"),
+                "reason": "Reason"
+            },
+            use_container_width=True,
+            hide_index=True
+        )
     else:
-        st.info("No trades executed (no signals or auto-trade disabled)")
+        st.info("No activity logged yet. Run the agent to see decisions.")
+
+    # Watchlist Management (Input for Agent)
+    st.subheader("🎯 Priority Watchlist")
+    with st.expander("Manage Watchlist"):
+        c1, c2 = st.columns([3, 1])
+        with c1:
+            new_symbol = st.text_input("Add Symbol", "").upper()
+        with c2:
+            if st.button("Add") and new_symbol:
+                if not any(item.symbol == new_symbol for item in st.session_state.watchlist):
+                    st.session_state.watchlist.append(WatchlistItem(symbol=new_symbol))
+                    st.success(f"Added {new_symbol}")
+                    st.rerun()
+        
+        if st.session_state.watchlist:
+            wl_df = pd.DataFrame([{"Symbol": i.symbol, "Added": "User"} for i in st.session_state.watchlist])
+            st.dataframe(wl_df, use_container_width=True, hide_index=True)
+            
+            to_remove = st.selectbox("Remove", [""] + [i.symbol for i in st.session_state.watchlist])
+            if st.button("Remove Symbol") and to_remove:
+                st.session_state.watchlist = [i for i in st.session_state.watchlist if i.symbol != to_remove]
+                st.rerun()
 
 
 def show_settings():
