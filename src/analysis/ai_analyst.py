@@ -59,12 +59,14 @@ class AIAnalyst:
             return "Error preparing analysis data."
         
         # 1. Try Gemini (Primary)
+        gemini_error = None
         if self.gemini_model:
             try:
                 response = self.gemini_model.generate_content(prompt)
                 if response.text:
                     return f"**[Gemini - {persona}]**: {response.text}"
             except Exception as e:
+                gemini_error = str(e)
                 logger.warning(f"Gemini analysis failed: {e}. Failing over to OpenAI...")
         
         # 2. Try OpenAI (Failover)
@@ -78,7 +80,7 @@ class AIAnalyst:
                 return f"**[OpenAI - {persona}]**: {response.choices[0].message.content}"
             except Exception as e:
                 logger.error(f"OpenAI analysis failed: {e}")
-                return f"Error: Both AI models failed. ({e})"
+                return f"Error: Both AI models failed.\n\nGemini Error: {gemini_error}\nOpenAI Error: {e}"
                 
         return """**AI Analysis Unavailable**
 
