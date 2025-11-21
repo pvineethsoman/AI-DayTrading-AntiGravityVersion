@@ -8,6 +8,8 @@ from src.services.scanner import MarketScanner
 from src.config import settings
 from src.models.trading import OrderSide, OrderType
 
+import threading
+
 logger = logging.getLogger(__name__)
 
 class PortfolioManager:
@@ -23,6 +25,7 @@ class PortfolioManager:
         self.engine = engine
         self.scanner = scanner
         self.decisions_log: List[Dict] = []
+        self.lock = threading.Lock()
         
     def log_decision(self, symbol: str, action: str, reason: str):
         """Logs a decision for the UI."""
@@ -43,13 +46,23 @@ class PortfolioManager:
             self.log_decision("SYSTEM", "SKIP", "Trading Disabled (Kill Switch)")
             return
 
-        logger.info(f"Starting Agent Cycle ({persona})")
-        
-        # 1. Review Holdings (Sell Logic)
-        self.review_holdings(persona)
-        
-        # 2. Find Opportunities (Buy Logic)
-        self.find_opportunities(persona, watchlist)
+        # Concurrency Check
+        if not self.lock.acquire(blocking=False):
+            logger.warning("Agent cycle skipped: Already running.")
+            self.log_decision("SYSTEM", "SKIP", "Agent Busy")
+            return
+
+        try:
+            logger.info(f"Starting Agent Cycle ({persona})")
+            
+            # 1. Review Holdings (Sell Logic)
+            self.review_holdings(persona)
+            
+            # 2. Find Opportunities (Buy Logic)
+            self.find_opportunities(persona, watchlist)
+            
+        finally:
+            self.lock.release()
         
     def review_holdings(self, persona: str):
         """Analyzes current positions and sells if criteria met."""

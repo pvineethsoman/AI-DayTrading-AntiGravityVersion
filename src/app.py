@@ -27,6 +27,7 @@ import datetime
 import random
 from src.services.scanner import MarketScanner
 from src.services.portfolio_manager import PortfolioManager
+from src.services.scheduler import AgentScheduler
 
 st.set_page_config(page_title="AI Day Trading Bot", layout="wide")
 
@@ -51,6 +52,9 @@ if 'portfolio_manager' not in st.session_state:
         st.session_state.engine,
         st.session_state.scanner
     )
+if 'scheduler' not in st.session_state:
+    st.session_state.scheduler = AgentScheduler(st.session_state.portfolio_manager)
+    st.session_state.scheduler.start()
 
 # Watchlist
 if 'watchlist' not in st.session_state:
@@ -235,7 +239,9 @@ def show_agent_dashboard():
     # Agent Controls
     col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        st.metric("Agent Status", "Ready", "Idle")
+        next_run = st.session_state.scheduler.get_next_run()
+        next_run_str = next_run.strftime("%H:%M") if next_run else "N/A"
+        st.metric("Next Run", next_run_str, "Scheduled")
     with col2:
         st.metric("Active Persona", st.session_state.ai_persona)
     with col3:
