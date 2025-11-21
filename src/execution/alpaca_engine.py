@@ -21,6 +21,14 @@ class AlpacaExecutionEngine:
             paper=settings.ALPACA_PAPER
         )
 
+    def get_account(self):
+        """Fetches account information."""
+        return self.client.get_account()
+
+    def get_positions(self):
+        """Fetches all open positions."""
+        return self.client.get_all_positions()
+
     @property
     def portfolio(self) -> Portfolio:
         """Fetches current portfolio state from Alpaca."""

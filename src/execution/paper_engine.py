@@ -12,6 +12,38 @@ class PaperTradingEngine:
         self.orders: List[Order] = []
         self.trades: List[Trade] = []
 
+    def get_account(self):
+        """Returns a mock account object matching Alpaca's structure."""
+        from types import SimpleNamespace
+        equity = self.portfolio.total_value
+        return SimpleNamespace(
+            equity=equity,
+            buying_power=self.portfolio.cash,
+            last_equity=equity, # Mock, could track history
+            status="ACTIVE (PAPER)"
+        )
+
+    def get_positions(self):
+        """Returns positions matching Alpaca's structure."""
+        from types import SimpleNamespace
+        result = []
+        for symbol, pos in self.portfolio.positions.items():
+            mv = pos.market_value
+            pnl = pos.unrealized_pnl
+            cost = pos.quantity * pos.average_price
+            pnlpc = (pnl / cost) if cost else 0
+            
+            result.append(SimpleNamespace(
+                symbol=symbol,
+                qty=pos.quantity,
+                market_value=mv,
+                unrealized_pl=pnl,
+                unrealized_plpc=pnlpc,
+                current_price=pos.current_price,
+                avg_entry_price=pos.average_price
+            ))
+        return result
+
     def place_order(self, symbol: str, side: OrderSide, quantity: int, order_type: OrderType = OrderType.MARKET, price: Optional[float] = None) -> Order:
         order = Order(
             id=str(uuid.uuid4()),
