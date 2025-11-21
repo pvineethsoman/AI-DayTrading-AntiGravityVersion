@@ -11,12 +11,16 @@ class AlphaVantageProvider(StockDataProvider):
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv('ALPHA_VANTAGE_API_KEY')
-        if not self.api_key:
-            raise ValueError("Alpha Vantage API key is required")
-        self.ts = TimeSeries(key=self.api_key, output_format='pandas')
+        if self.api_key:
+            self.ts = TimeSeries(key=self.api_key, output_format='pandas')
+        else:
+            self.ts = None
 
     @RateLimiter(max_calls=5, period=60)
     def get_stock_data(self, symbol: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> Stock:
+        if not self.ts:
+            raise ValueError("Alpha Vantage API key is missing")
+            
         # Alpha Vantage free tier has limits, so we'll use daily adjusted
         data, meta_data = self.ts.get_daily_adjusted(symbol=symbol, outputsize='full')
         
@@ -51,6 +55,9 @@ class AlphaVantageProvider(StockDataProvider):
     @RateLimiter(max_calls=5, period=60)
     def get_news_sentiment(self, symbol: Optional[str] = None, limit: int = 5) -> list:
         """Fetches news sentiment data."""
+        if not self.api_key:
+            return []
+            
         import requests
         url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&apikey={self.api_key}&limit={limit}"
         if symbol:
@@ -72,6 +79,9 @@ class AlphaVantageProvider(StockDataProvider):
     @RateLimiter(max_calls=5, period=60)
     def get_fundamentals(self, symbol: str) -> dict:
         """Fetches fundamental data (Overview)."""
+        if not self.api_key:
+            return {}
+            
         import requests
         url = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={symbol}&apikey={self.api_key}"
         
